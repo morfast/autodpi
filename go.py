@@ -4,6 +4,7 @@ import sys
 import glob
 from numpy import mean
 import argparse
+import operator
 
 from sklearn import svm
 from sklearn.model_selection import cross_val_score
@@ -12,10 +13,14 @@ from sklearn import neighbors
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neural_network import MLPClassifier
 from sklearn import tree
+from sklearn.cluster import AffinityPropagation
+from sklearn.cluster import DBSCAN
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import IsolationForest
 
 
 # truncate Truncate_size bytes from the front
-Truncate_size = 5
+Truncate_size = 8
 
 def read_data_from_file(filename):
 
@@ -38,6 +43,7 @@ def read_data(dirnames):
         dirname = dirname.strip('/')
         # get data file list
         filelist = glob.glob(dirname + "/*-*")
+        filelist.sort()
         processed_file = {}
         for filename in filelist:
             basefilename = filename.split('/')[1]
@@ -58,6 +64,31 @@ def read_data(dirnames):
 
     return data, label
 
+def count_elem(data):
+    
+    res = {}
+    for d in data:
+        if d in res.keys():
+            res[d] += 1
+        else:
+            res[d] = 1
+    return res
+
+
+
+def clustering(input_data):
+    #clf = AffinityPropagation(preference=-50)
+    #clf = AffinityPropagation()
+    data = StandardScaler().fit_transform(input_data)
+    clf = DBSCAN(min_samples=3, eps=0.3)
+    clf.fit(data)
+    print clf.labels_
+    sorted_x = sorted(count_elem(clf.labels_).items(), key=operator.itemgetter(1))
+    sorted_x.reverse()
+    print sorted_x
+    
+
+
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--train", action='store', nargs='*')
@@ -73,21 +104,33 @@ def main():
     for Truncate_size in range(1,16):
         x,y = read_data()
         
-        #clf = svm.SVC()
+        clf = svm.SVC()
         #clf = SGDClassifier()
         #clf = neighbors.KNeighborsClassifier(8, 'distance')
         #clf = GaussianNB()
         #clf = MLPClassifier(solver='lbfgs', alpha=1e-5, \
         #                    hidden_layer_sizes=(5, 2), random_state=1)
-        clf = tree.DecisionTreeClassifier()
+        #clf = tree.DecisionTreeClassifier()
         clf.fit(x,y)
         scores = cross_val_score(clf, x, y, cv=5)
         print mean(scores)
+
+def test_clustering():
+    x = [[1,1,], [2,2], [1,2], [8,9], [7,9], [8,8]]
+    print x
+    x = StandardScaler().fit_transform(x)
+    print x
+    clustering(x)
 
 def svmtest():
     args = parse_arguments()
 
     x,y = read_data(args.train)
+    print "size of training set:", len(x)
+    for line in x:
+        print "\t".join(["%02x" % a for a in line])
+    #clustering(x)
+    #return
     data_dict = {}
     for elem in zip(y,x):
         key, value = elem
@@ -99,15 +142,22 @@ def svmtest():
     clfs = []
     for key in data_dict.keys():
         # key is type, value is data
-        clf = svm.OneClassSVM(nu=0.1, kernel="rbf", gamma=0.1)
+        #clf = svm.OneClassSVM(nu=0.1, kernel="rbf", gamma=0.1)
+        clf = IsolationForest()
         #clf = svm.OneClassSVM()
         clf.fit(data_dict[key])
+        print
+        print data_dict[key]
         clfs.append((key, clf))
 
     x,y = read_data(args.data)
+    print "size of test set:", len(x)
+    for line in x:
+        print "\t".join(["%02x" % a for a in line])
     for clfname, clf in clfs:
         print float(len([i for i in clf.predict(x) if i == 1]))/len(x)
 
 
 #main()
 clfs = svmtest()
+#test_clustering()
