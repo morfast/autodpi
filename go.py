@@ -5,6 +5,7 @@ import glob
 from numpy import mean
 import argparse
 import operator
+import re
 
 from sklearn import svm
 from sklearn.model_selection import cross_val_score
@@ -20,7 +21,8 @@ from sklearn.ensemble import IsolationForest
 
 
 # truncate Truncate_size bytes from the front
-Truncate_size = 8
+Truncate_size = 4
+Max_Round_count = 1
 
 def read_data_from_file(filename):
 
@@ -33,6 +35,35 @@ def read_data_from_file(filename):
     if len(rawdata) < skip_size + Truncate_size:
         return []
     return [ord(b) for b in rawdata[skip_size:skip_size+Truncate_size]]
+
+def read_data_from_tshark_file(filename):
+    global Max_Round_count
+
+    lines = open(filename).readlines()
+    state = 'tab'
+    data = []
+    rcount = 0 # round count
+    for line in lines[6:-1]:
+        if line[0] != "\t":
+            d = [int(i, 16) for i in re.findall('..', line)]
+            if state == 'tab':
+                data += d[:Truncate_size] + [0] * (Truncate_size - len(d[:Truncate_size]))
+                state = 'notab'
+        else:
+            d = [int(i, 16) for i in re.findall('..', line[1:])]
+            if state == 'notab':
+                data += d[:Truncate_size] + [0] * (Truncate_size - len(d[:Truncate_size]))
+                state = 'tab'
+                rcount += 1
+                if rcount >= Max_Round_count:
+                    break
+
+    if not (len(data) == 0 or len(data) == Truncate_size*2):
+        return []
+        print len(data)
+        print filename
+    assert(len(data) == 0 or len(data) == Truncate_size*2)
+    return data
 
 def read_data(dirnames):
     """ read data from tcpflow output files """
@@ -61,6 +92,23 @@ def read_data(dirnames):
                     label.append(dirname)
                 processed_file[basefilename] = 1
                 processed_file[mirror_basefilename] = 1
+
+    return data, label
+
+def read_data_tshark(dirnames):
+    """ read data from tshark output files """
+
+    data = []
+    label = []
+    for dirname in dirnames:
+        dirname = dirname.strip('/')
+        # get data file list
+        filelist = glob.glob(dirname + "/flow*")
+        for filename in filelist:
+            a = read_data_from_tshark_file(filename)
+            if a:
+                data.append(a)
+                label.append(dirname)
 
     return data, label
 
@@ -125,7 +173,7 @@ def test_clustering():
 def svmtest():
     args = parse_arguments()
 
-    x,y = read_data(args.train)
+    x,y = read_data_tshark(args.train)
     print "size of training set:", len(x)
     for line in x:
         print "\t".join(["%02x" % a for a in line])
@@ -150,14 +198,16 @@ def svmtest():
         print data_dict[key]
         clfs.append((key, clf))
 
-    x,y = read_data(args.data)
+    x,y = read_data_tshark(args.data)
     print "size of test set:", len(x)
     for line in x:
         print "\t".join(["%02x" % a for a in line])
     for clfname, clf in clfs:
+        print clf.predict(x)
         print float(len([i for i in clf.predict(x) if i == 1]))/len(x)
 
 
 #main()
-clfs = svmtest()
+#clfs = svmtest()
 #test_clustering()
+svmtest()
