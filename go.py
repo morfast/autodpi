@@ -21,49 +21,8 @@ from sklearn.ensemble import IsolationForest
 
 
 # truncate Truncate_size bytes from the front
-Truncate_size = 4
+Truncate_size = 32
 Max_Round_count = 1
-
-def read_data_from_file(filename):
-
-    global Truncate_size
-
-    skip_size = 0
-
-    f = open(filename, "rb")
-    rawdata = f.read()
-    if len(rawdata) < skip_size + Truncate_size:
-        return []
-    return [ord(b) for b in rawdata[skip_size:skip_size+Truncate_size]]
-
-def read_data_from_tshark_file(filename):
-    global Max_Round_count
-
-    lines = open(filename).readlines()
-    state = 'tab'
-    data = []
-    rcount = 0 # round count
-    for line in lines[6:-1]:
-        if line[0] != "\t":
-            d = [int(i, 16) for i in re.findall('..', line)]
-            if state == 'tab':
-                data += d[:Truncate_size] + [0] * (Truncate_size - len(d[:Truncate_size]))
-                state = 'notab'
-        else:
-            d = [int(i, 16) for i in re.findall('..', line[1:])]
-            if state == 'notab':
-                data += d[:Truncate_size] + [0] * (Truncate_size - len(d[:Truncate_size]))
-                state = 'tab'
-                rcount += 1
-                if rcount >= Max_Round_count:
-                    break
-
-    if not (len(data) == 0 or len(data) == Truncate_size*2):
-        return []
-        print len(data)
-        print filename
-    assert(len(data) == 0 or len(data) == Truncate_size*2)
-    return data
 
 def read_data(dirnames):
     """ read data from tcpflow output files """
@@ -95,6 +54,58 @@ def read_data(dirnames):
 
     return data, label
 
+
+def read_data_from_file(filename):
+
+    global Truncate_size
+
+    skip_size = 0
+
+    f = open(filename, "rb")
+    rawdata = f.read()
+    if len(rawdata) < skip_size + Truncate_size:
+        return []
+    return [ord(b) for b in rawdata[skip_size:skip_size+Truncate_size]]
+
+def expand_to_bit_data(data):
+    """ expand n to a vector v with length 256, v[n] = 1, v[other] = 0 """
+    res = []
+    for n in data:
+        ex = [0] * 256
+        ex[n] = 1
+        res += ex
+
+    return res
+
+def read_data_from_tshark_file(filename):
+    global Max_Round_count
+
+    lines = open(filename).readlines()
+    state = 'tab'
+    data = []
+    rcount = 0 # round count
+    for line in lines[6:-1]:
+        if line[0] != "\t":
+            d = [int(i, 16) for i in re.findall('..', line)]
+            if state == 'tab':
+                data += d[:Truncate_size] + [0] * (Truncate_size - len(d[:Truncate_size]))
+                state = 'notab'
+        else:
+            d = [int(i, 16) for i in re.findall('..', line[1:])]
+            if state == 'notab':
+                data += d[:Truncate_size] + [0] * (Truncate_size - len(d[:Truncate_size]))
+                state = 'tab'
+                rcount += 1
+                if rcount >= Max_Round_count:
+                    break
+
+    if not (len(data) == 0 or len(data) == Truncate_size*2):
+        return []
+        print len(data)
+        print filename
+    assert(len(data) == 0 or len(data) == Truncate_size*2)
+    return expand_to_bit_data(data)
+
 def read_data_tshark(dirnames):
     """ read data from tshark output files """
 
@@ -122,8 +133,6 @@ def count_elem(data):
             res[d] = 1
     return res
 
-
-
 def clustering(input_data):
     #clf = AffinityPropagation(preference=-50)
     #clf = AffinityPropagation()
@@ -146,21 +155,23 @@ def parse_arguments():
 
     return args
 
-def main():
+def multiclasstest():
     global Truncate_size
 
-    for Truncate_size in range(1,16):
-        x,y = read_data()
+    args = parse_arguments()
+    for Truncate_size in range(10,95,10):
+        x,y = read_data_tshark(args.train)
+        print len(x)
         
-        clf = svm.SVC()
+        #clf = svm.SVC()
         #clf = SGDClassifier()
         #clf = neighbors.KNeighborsClassifier(8, 'distance')
-        #clf = GaussianNB()
+        clf = GaussianNB()
         #clf = MLPClassifier(solver='lbfgs', alpha=1e-5, \
         #                    hidden_layer_sizes=(5, 2), random_state=1)
         #clf = tree.DecisionTreeClassifier()
         clf.fit(x,y)
-        scores = cross_val_score(clf, x, y, cv=5)
+        scores = cross_val_score(clf, x, y, cv=4)
         print mean(scores)
 
 def test_clustering():
@@ -175,8 +186,8 @@ def svmtest():
 
     x,y = read_data_tshark(args.train)
     print "size of training set:", len(x)
-    for line in x:
-        print "\t".join(["%02x" % a for a in line])
+    #for line in x:
+    #    print "\t".join(["%02x" % a for a in line])
     #clustering(x)
     #return
     data_dict = {}
@@ -194,20 +205,19 @@ def svmtest():
         clf = IsolationForest()
         #clf = svm.OneClassSVM()
         clf.fit(data_dict[key])
-        print
-        print data_dict[key]
         clfs.append((key, clf))
 
     x,y = read_data_tshark(args.data)
     print "size of test set:", len(x)
-    for line in x:
-        print "\t".join(["%02x" % a for a in line])
+    #for line in x:
+    #    print "\t".join(["%02x" % a for a in line])
     for clfname, clf in clfs:
         print clf.predict(x)
         print float(len([i for i in clf.predict(x) if i == 1]))/len(x)
 
 
-#main()
+multiclasstest()
 #clfs = svmtest()
 #test_clustering()
-svmtest()
+#svmtest()
+#print expand_to_bit_data([1,2])
