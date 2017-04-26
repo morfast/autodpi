@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python -u
 
 import sys
 import glob
@@ -21,7 +21,7 @@ from sklearn.ensemble import IsolationForest
 
 
 # truncate Truncate_size bytes from the front
-Truncate_size = 32
+Truncate_size = 64
 Max_Round_count = 1
 
 def read_data(dirnames):
@@ -79,6 +79,7 @@ def expand_to_bit_data(data):
 
 def read_data_from_tshark_file(filename):
     global Max_Round_count
+    global Truncate_size
 
     lines = open(filename).readlines()
     state = 'tab'
@@ -115,11 +116,14 @@ def read_data_tshark(dirnames):
         dirname = dirname.strip('/')
         # get data file list
         filelist = glob.glob(dirname + "/flow*")
+        ndata = 0
         for filename in filelist:
             a = read_data_from_tshark_file(filename)
             if a:
                 data.append(a)
                 label.append(dirname)
+                ndata += 1
+        print dirname, len(filelist), ndata
 
     return data, label
 
@@ -155,7 +159,7 @@ def parse_arguments():
 
     return args
 
-def multiclasstest():
+def single_classifier_test():
     global Truncate_size
 
     args = parse_arguments()
@@ -166,9 +170,9 @@ def multiclasstest():
         #clf = svm.SVC()
         #clf = SGDClassifier()
         #clf = neighbors.KNeighborsClassifier(8, 'distance')
-        clf = GaussianNB()
-        #clf = MLPClassifier(solver='lbfgs', alpha=1e-5, \
-        #                    hidden_layer_sizes=(5, 2), random_state=1)
+        #clf = GaussianNB()
+        clf = MLPClassifier(solver='lbfgs', alpha=1e-5, \
+                            hidden_layer_sizes=(5, 2), random_state=1)
         #clf = tree.DecisionTreeClassifier()
         clf.fit(x,y)
         scores = cross_val_score(clf, x, y, cv=4)
@@ -181,15 +185,38 @@ def test_clustering():
     print x
     clustering(x)
 
-def svmtest():
+def multiple_classifier_test():
+    args = parse_arguments()
+
+    print "reading training data ..."
+    x,y = read_data_tshark(args.train)
+    classes = set(y)
+    print "number of training data:", len(x)
+    print "number of classes:", len(classes)
+    
+    for c in classes:
+        print c,
+        xx = x[:]
+        yy = y[:]
+        for i,cname in enumerate(yy):
+            if cname == c:
+                yy[i] = 1
+            else:
+                yy[i] = -1
+        #clf = GaussianNB()
+        clf = MLPClassifier(solver='lbfgs', alpha=1e-5, \
+                            hidden_layer_sizes=(5, 2), random_state=1)
+        clf.fit(xx,yy)
+        scores = cross_val_score(clf, xx, yy, cv=4)
+        print scores, mean(scores)
+
+def outlier_test():
     args = parse_arguments()
 
     x,y = read_data_tshark(args.train)
     print "size of training set:", len(x)
-    #for line in x:
-    #    print "\t".join(["%02x" % a for a in line])
-    #clustering(x)
-    #return
+
+    # class_name: [data]
     data_dict = {}
     for elem in zip(y,x):
         key, value = elem
@@ -202,8 +229,8 @@ def svmtest():
     for key in data_dict.keys():
         # key is type, value is data
         #clf = svm.OneClassSVM(nu=0.1, kernel="rbf", gamma=0.1)
-        clf = IsolationForest()
-        #clf = svm.OneClassSVM()
+        #clf = IsolationForest()
+        clf = svm.OneClassSVM()
         clf.fit(data_dict[key])
         clfs.append((key, clf))
 
@@ -216,8 +243,9 @@ def svmtest():
         print float(len([i for i in clf.predict(x) if i == 1]))/len(x)
 
 
-multiclasstest()
+#single_classifier_test()
+#multiple_classifier_test()
 #clfs = svmtest()
 #test_clustering()
-#svmtest()
+outlier_test()
 #print expand_to_bit_data([1,2])
