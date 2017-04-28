@@ -6,6 +6,7 @@ from numpy import mean
 import argparse
 import operator
 import re
+import random
 
 from sklearn import svm
 from sklearn.model_selection import cross_val_score
@@ -21,7 +22,7 @@ from sklearn.ensemble import IsolationForest
 
 
 # truncate Truncate_size bytes from the front
-Truncate_size = 64
+Truncate_size = 32
 Max_Round_count = 1
 
 def read_data(dirnames):
@@ -147,8 +148,15 @@ def clustering(input_data):
     sorted_x = sorted(count_elem(clf.labels_).items(), key=operator.itemgetter(1))
     sorted_x.reverse()
     print sorted_x
-    
 
+def test_clustering():
+    x = [[1,1,], [2,2], [1,2], [8,9], [7,9], [8,8]]
+    print x
+    x = StandardScaler().fit_transform(x)
+    print x
+    clustering(x)
+
+    
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -178,14 +186,30 @@ def single_classifier_test():
         scores = cross_val_score(clf, x, y, cv=4)
         print mean(scores)
 
-def test_clustering():
-    x = [[1,1,], [2,2], [1,2], [8,9], [7,9], [8,8]]
-    print x
-    x = StandardScaler().fit_transform(x)
-    print x
-    clustering(x)
+def coef_analysis(coef):
+    mod = 256
+    n_large = 0
+    for i, c in enumerate(coef):
+        if abs(c) > 2 * 10e-2:
+            n_large += 1
+            print (i+1) % mod, 
+        if i > 0 and ((i+1) % mod == 0):
+            print "| ", n_large
+            n_large = 0
+    print
+
+def shuffle_data(x,y):
+    s = zip(x, y)
+    random.shuffle(s)
+    return [a[0] for a in s], [a[1] for a in s]
+
+def fill_with_random(x):
+    length = len(x)/256
+    #return expand_to_bit_data([random.randint(0,255) for i in range(length)])
+    return expand_to_bit_data([0 for i in range(length)])
 
 def multiple_classifier_test():
+    global Truncate_size
     args = parse_arguments()
 
     print "reading training data ..."
@@ -193,6 +217,8 @@ def multiple_classifier_test():
     classes = set(y)
     print "number of training data:", len(x)
     print "number of classes:", len(classes)
+
+    x,y = shuffle_data(x, y)
     
     for c in classes:
         print c,
@@ -203,10 +229,13 @@ def multiple_classifier_test():
                 yy[i] = 1
             else:
                 yy[i] = -1
-        #clf = GaussianNB()
-        clf = MLPClassifier(solver='lbfgs', alpha=1e-5, \
-                            hidden_layer_sizes=(5, 2), random_state=1)
-        clf.fit(xx,yy)
+                xx[i] = fill_with_random(xx[i])
+        clf = GaussianNB()
+        #clf = MLPClassifier(activation='identity', solver='adam', alpha=1e-4, \
+        #                    hidden_layer_sizes=(), random_state=1, max_iter=2000)
+        print len(xx[0])
+        #clf.fit(xx,yy)
+        #coef_analysis(clf.coefs_[0])
         scores = cross_val_score(clf, xx, yy, cv=4)
         print scores, mean(scores)
 
@@ -242,10 +271,9 @@ def outlier_test():
         print clf.predict(x)
         print float(len([i for i in clf.predict(x) if i == 1]))/len(x)
 
-
 #single_classifier_test()
-#multiple_classifier_test()
+multiple_classifier_test()
 #clfs = svmtest()
 #test_clustering()
-outlier_test()
+#outlier_test()
 #print expand_to_bit_data([1,2])
