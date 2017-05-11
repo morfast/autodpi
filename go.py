@@ -72,7 +72,7 @@ def expand_to_bit_data(data):
     """ expand n to a vector v with length 256, v[n] = 1, v[other] = 0 """
     res = []
     for n in data:
-        ex = [0] * 256
+        ex = [0] * 257
         ex[n] = 1
         res += ex
 
@@ -90,12 +90,12 @@ def read_data_from_tshark_file(filename):
         if line[0] != "\t":
             d = [int(i, 16) for i in re.findall('..', line)]
             if state == 'tab':
-                data += d[:Truncate_size] + [0] * (Truncate_size - len(d[:Truncate_size]))
+                data += d[:Truncate_size] + [256] * (Truncate_size - len(d[:Truncate_size]))
                 state = 'notab'
         else:
             d = [int(i, 16) for i in re.findall('..', line[1:])]
             if state == 'notab':
-                data += d[:Truncate_size] + [0] * (Truncate_size - len(d[:Truncate_size]))
+                data += d[:Truncate_size] + [256] * (Truncate_size - len(d[:Truncate_size]))
                 state = 'tab'
                 rcount += 1
                 if rcount >= Max_Round_count:
@@ -221,7 +221,6 @@ def multiple_classifier_test():
     x,y = shuffle_data(x, y)
     
     for c in classes:
-        print c,
         xx = x[:]
         yy = y[:]
         for i,cname in enumerate(yy):
@@ -229,15 +228,16 @@ def multiple_classifier_test():
                 yy[i] = 1
             else:
                 yy[i] = -1
-                xx[i] = fill_with_random(xx[i])
-        clf = GaussianNB()
-        #clf = MLPClassifier(activation='identity', solver='adam', alpha=1e-4, \
-        #                    hidden_layer_sizes=(), random_state=1, max_iter=2000)
-        print len(xx[0])
+                #xx[i] = fill_with_random(xx[i])
+        #clf = GaussianNB()
+        clf = MLPClassifier(activation='relu', solver='adam', alpha=1e-5, \
+                            hidden_layer_sizes=(), random_state=1, max_iter=1500)
+        print clf.get_params()
+        #print len(xx[0])
         #clf.fit(xx,yy)
         #coef_analysis(clf.coefs_[0])
         scores = cross_val_score(clf, xx, yy, cv=4)
-        print scores, mean(scores)
+        print c, scores, mean(scores)
 
 def outlier_test():
     args = parse_arguments()
