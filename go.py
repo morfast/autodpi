@@ -230,25 +230,26 @@ def multiple_classifier_test():
             else:
                 yy[i] = -1
                 #xx[i] = fill_with_random(xx[i])
-        clf = MyBayesClassifier()
-        #clf = GaussianNB()
+        clf = GaussianNB()
         #clf = MLPClassifier(activation='relu', solver='adam', alpha=1e-5, \
         #                    hidden_layer_sizes=(), random_state=1, max_iter=1500)
         #print clf.get_params()
         #print len(xx[0])
-        clf.fit(xx,yy)
-
-        predict_y = clf.predict(xx)
-        c = 0
-        for i, ry in enumerate(yy):
-            if predict_y[i] == ry:
-                c += 1
-
-        print float(c)/len(yy)
 
         #coef_analysis(clf.coefs_[0])
-        #scores = cross_val_score(clf, xx, yy, cv=4)
-        #print c, scores, mean(scores)
+        scores = cross_val_score(clf, xx, yy, cv=4)
+        print c, scores, mean(scores)
+
+        #clf = MyBayesClassifier()
+        #clf.fit(xx,yy)
+
+        #predict_y = clf.predict(xx)
+        #c = 0
+        #for i, ry in enumerate(yy):
+        #    if predict_y[i] == ry:
+        #        c += 1
+
+        #print float(c)/len(yy)
 
 def outlier_test():
     args = parse_arguments()
