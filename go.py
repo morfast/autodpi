@@ -7,6 +7,7 @@ import argparse
 import operator
 import re
 import random
+import math
 
 from sklearn import svm
 from sklearn.model_selection import cross_val_score
@@ -230,26 +231,51 @@ def multiple_classifier_test():
             else:
                 yy[i] = -1
                 #xx[i] = fill_with_random(xx[i])
-        clf = GaussianNB()
+        #clf = GaussianNB()
         #clf = MLPClassifier(activation='relu', solver='adam', alpha=1e-5, \
-        #                    hidden_layer_sizes=(), random_state=1, max_iter=1500)
+                            #hidden_layer_sizes=(), random_state=1, max_iter=1500)
         #print clf.get_params()
         #print len(xx[0])
 
         #coef_analysis(clf.coefs_[0])
+        #scores = cross_val_score(clf, xx, yy, cv=4)
+        #print c, scores, mean(scores)
+
+        clf = GaussianNB()
+        #clf = MyBayesClassifier()
         scores = cross_val_score(clf, xx, yy, cv=4)
         print c, scores, mean(scores)
+        #clf.fit(xx, yy)
 
-        #clf = MyBayesClassifier()
-        #clf.fit(xx,yy)
 
-        #predict_y = clf.predict(xx)
-        #c = 0
-        #for i, ry in enumerate(yy):
-        #    if predict_y[i] == ry:
-        #        c += 1
+def my_cross_val_score(clf, x, y, cv):
+    assert(len(x) == len(y))
+    chunk_size = int(math.ceil(len(x) / float(cv)))
+# chunks = [data[x:x+100] for x in xrange(0, len(data), 100)]
+    x_chunks = [x[s:s + chunk_size] for s in xrange(0, len(x), chunk_size)]
+    y_chunks = [y[s:s + chunk_size] for s in xrange(0, len(y), chunk_size)]
 
-        #print float(c)/len(yy)
+    res = []
+    for i in range(len(x_chunks)):
+        x_train_ = x_chunks[:i] + x_chunks[i+1:]
+        x_train = []
+        for ch in x_train_:
+            for a in ch:
+                x_train.append(a)
+        y_train_ = y_chunks[:i] + y_chunks[i+1:]
+        y_train = []
+        for ch in y_train_:
+            for a in ch:
+                y_train.append(a)
+        x_test = x_chunks[i]
+        y_test = y_chunks[i]
+
+        clf.fit(x_train, y_train)
+        res.append(clf.score(x_test, y_test))
+
+    return res
+
+
 
 def outlier_test():
     args = parse_arguments()
@@ -283,6 +309,9 @@ def outlier_test():
         print clf.predict(x)
         print float(len([i for i in clf.predict(x) if i == 1]))/len(x)
 
+#x = [1,2,3,4,5,6,7,8,9]
+#y = [1,2,3,4,5,6,7,8,9]
+#my_cross_val_score(1, x, y, 4)
 #single_classifier_test()
 multiple_classifier_test()
 #clfs = svmtest()

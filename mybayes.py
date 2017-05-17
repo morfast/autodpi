@@ -25,8 +25,12 @@ class MyBayesClassifier():
             datas = data_per_c[c]
             n_samples = len(datas)
             #print zip(datas)[0]
-            self._P_FC_[c] = [(sum(i) + 0.01) /float(n_samples) for i in zip(*datas)]
+            #s = [sum(i) for i in zip(*datas)]
+            self._P_FC_[c] = [(sum(i) + 0.01 ) /float(n_samples) for i in zip(*datas)]
+            assert(all(self._P_FC_[c]))
             self._P_C_[c] = n_samples / float(total_n_samples)
+        #print self._P_FC_
+        #print self._P_C_
 
 
     def predict(self, datas):
@@ -50,7 +54,6 @@ class MyBayesClassifier():
         return res
 
     def score(self, x, y):
-        self.fit(x, y)
         predict_y = self.predict(x)
         c = 0
         for i, yy in enumerate(y):
@@ -58,7 +61,6 @@ class MyBayesClassifier():
                 c += 1
 
         return float(c)/len(y)
-
 
     def get_params(self, deep=False):
         pass
