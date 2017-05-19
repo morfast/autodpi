@@ -229,7 +229,7 @@ def multiple_classifier_test():
             if cname == c:
                 yy[i] = 1
             else:
-                yy[i] = -1
+                yy[i] = 0
                 #xx[i] = fill_with_random(xx[i])
         #clf = GaussianNB()
         #clf = MLPClassifier(activation='relu', solver='adam', alpha=1e-5, \
@@ -241,11 +241,12 @@ def multiple_classifier_test():
         #scores = cross_val_score(clf, xx, yy, cv=4)
         #print c, scores, mean(scores)
 
-        clf = GaussianNB()
-        #clf = MyBayesClassifier()
-        scores = cross_val_score(clf, xx, yy, cv=4)
-        print c, scores, mean(scores)
-        #clf.fit(xx, yy)
+        #clf = GaussianNB()
+        clf = MyBayesClassifier()
+        #scores = cross_val_score(clf, xx, yy, cv=4)
+        #print c, scores, mean(scores)
+        clf.fit(xx, yy)
+        clf.store_model(c)
 
 
 def my_cross_val_score(clf, x, y, cv):

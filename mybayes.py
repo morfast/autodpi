@@ -3,15 +3,22 @@
 class MyBayesClassifier():
 
     def __init__(self):
-        #self._n_samples_ = 0
-        #self._samples_len_ = 0
+        # number of samples
+        self._n_samples_ = 0
+        # number of features, length of the feature vector
+        self._n_features_ = 0
+        # number of classes, usually 2
+        self._n_classes_ = 0
+
         self._P_FC_ = {}
         self._P_C_ = {}
-        pass
 
     def fit(self, x, y):
         total_n_samples = len(x)
         assert(len(x) == len(y))
+        self._n_samples_ = total_n_samples
+        self._n_features_ = len(x[0])
+        self._n_classes_ = len(set(y))
         # group the data by class
         data_per_c = {}
         for data, label in zip(x,y):
@@ -64,6 +71,28 @@ class MyBayesClassifier():
 
     def get_params(self, deep=False):
         pass
+
+    def store_model(self, sample_name):
+        storefilename = "bayes_" + sample_name + ".model"
+        f = open(storefilename, "w")
+
+        #float P_C[N_CLASS];
+        nclass = self._n_classes_
+        f.write("%d\n" % nclass)
+        for c in self._P_C_.keys():
+            f.write("%d\n" % c)
+            f.write("%f\n" % self._P_C_[c])
+            
+        #float *P_F_C[N_CLASS];
+        f.write("%d\n" % nclass)
+        for c in self._P_FC_.keys():
+            f.write("%d\n" % c)
+            f.write("%d\n" % self._n_features_)
+            for v in self._P_FC_[c]:
+                f.write("%f " % v)
+            f.write("\n")
+
+
 
 
 #x = [ [1,1,1,1,1], [0,0,0,0,0] ]
