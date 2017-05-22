@@ -55,6 +55,7 @@ class MyBayesClassifier():
                 ps.append(p_cf)
                 cs.append(c)
 
+            print "ps: ", ps
             res.append(max(zip(ps, cs), key=lambda x: x[0])[1])
             #print "data:", data, "ps:", ps, "cs", cs
 
@@ -81,7 +82,7 @@ class MyBayesClassifier():
         f.write("%d\n" % nclass)
         for c in self._P_C_.keys():
             f.write("%d\n" % c)
-            f.write("%f\n" % self._P_C_[c])
+            f.write("%12.10lf\n" % self._P_C_[c])
             
         #float *P_F_C[N_CLASS];
         f.write("%d\n" % nclass)
@@ -89,7 +90,7 @@ class MyBayesClassifier():
             f.write("%d\n" % c)
             f.write("%d\n" % self._n_features_)
             for v in self._P_FC_[c]:
-                f.write("%f " % v)
+                f.write("%12.10lf " % v)
             f.write("\n")
 
 

@@ -243,10 +243,11 @@ def multiple_classifier_test():
 
         #clf = GaussianNB()
         clf = MyBayesClassifier()
-        #scores = cross_val_score(clf, xx, yy, cv=4)
+        #scores = my_cross_val_score(clf, xx, yy, cv=4)
         #print c, scores, mean(scores)
         clf.fit(xx, yy)
         clf.store_model(c)
+        clf.predict([read_data_from_tshark_file("ctest")])
 
 
 def my_cross_val_score(clf, x, y, cv):

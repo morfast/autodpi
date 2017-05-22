@@ -1,5 +1,6 @@
 #include<stdio.h>
 #include<stdlib.h>
+#include<assert.h>
 
 typedef enum {
     NEG, 
@@ -18,8 +19,8 @@ typedef struct ml_bayes_param {
      * possibility of feature Fn in class C
      */ 
     int feature_size;
-    float P_C[N_CLASS];
-    float *P_F_C[N_CLASS];
+    double P_C[N_CLASS];
+    double *P_F_C[N_CLASS];
 } ml_bayes_param_t;
 
 static void print_bayes_param(ml_bayes_param_t *p)
@@ -28,10 +29,10 @@ static void print_bayes_param(ml_bayes_param_t *p)
     printf("n_feature: %d\n", p->feature_size);
     
     for (i = 0; i < N_CLASS; i++) {
-        printf("pc: %f\n", p->P_C[i]);
+        printf("pc: %lf\n", p->P_C[i]);
         printf("pfc: ");
         for (j = 0; j < p->feature_size; j++) {
-            printf("%f ", p->P_F_C[i][j]);
+            printf("%lf ", p->P_F_C[i][j]);
         }
         printf("\n");
     }
@@ -55,16 +56,16 @@ ml_bayes_param_t* load_bayes_param(const char *filename)
     fscanf(fp, "%d", &n_class);
     for (i = 0; i < n_class; i++) {
         fscanf(fp, "%d", &c);
-        fscanf(fp, "%f", &(param->P_C[c]));
+        fscanf(fp, "%lf", &(param->P_C[c]));
     }
 
     fscanf(fp, "%d", &n_class);
     for (i = 0; i < n_class; i++) {
         fscanf(fp, "%d", &c);
         fscanf(fp, "%d", &n_feature);
-        param->P_F_C[c] = (float *)malloc(sizeof(float) * n_feature);
+        param->P_F_C[c] = (double *)malloc(sizeof(double) * n_feature);
         for (j = 0; j < n_feature; j++) {
-            fscanf(fp, "%f", &(param->P_F_C[c][j]));
+            fscanf(fp, "%lf", &(param->P_F_C[c][j]));
         }
     }
     param->feature_size = n_feature;
@@ -76,30 +77,30 @@ ml_bayes_param_t* load_bayes_param(const char *filename)
 /* flow type prediction with naive bayes method
  * buf: original bytes in the flow
  * n: then length of buf */
-class_type bayes_predict(unsigned char *buf, int n, ml_bayes_param_t *param)
+class_type bayes_predict(unsigned int *buf, int n, ml_bayes_param_t *param)
 {
     int i;
-    float **P_F_C, *P_C;
+    double **P_F_C, *P_C;
 
     P_C = param->P_C;
     P_F_C = param->P_F_C;
 
     /* for each class, calculate P(F1|C)P(F2|C)...P(Fn|C)P(C) */
     int c;
-    float result_P[N_CLASS];
+    double result_P[N_CLASS];
     for (c = 0; c < N_CLASS; c++) {
-        float *pfc = P_F_C[c];
-        result_P[c] = 1.0;
+        double *pfc = P_F_C[c];
+        result_P[c] = P_C[c];
         for (i = 0; i < n; i++) {
-            result_P[c] *= pfc[buf[i] + 256 * i];
+            //printf("%d %d %lf\n", buf[i], buf[i] + (257 * i), pfc[buf[i] + (257 * i)]);
+            result_P[c] *= (pfc[buf[i] + (257 * i)]);
         }
-        result_P[c] *= pfc[buf[i] + 256 * i];
     }
-    result_P[c] *= P_C[c];
 
-    float maxp = 0.0;
-    float maxi = -1;
+    double maxp = 0.0;
+    int maxi = -1;
     for (c = 0; c < N_CLASS; c++) {
+        //printf("result_P %e\n", result_P[c]);
         if (result_P[c] > maxp) {
             maxp = result_P[c];
             maxi = c;
@@ -109,13 +110,37 @@ class_type bayes_predict(unsigned char *buf, int n, ml_bayes_param_t *param)
     return maxi;
 }
 
-int main(void)
+unsigned int* read_test_data(const char *filename)
+{
+    FILE *fp;
+
+    fp = fopen(filename, "r");
+    int length = 32 * 2;
+    int i;
+    unsigned int *buf;
+
+    buf = (unsigned int *)malloc(sizeof(int) * length);
+
+    for (i = 0; i < length; i++) {
+        fscanf(fp, "%d", buf + i);
+    }
+
+    return buf;
+}
+    
+
+int main(int argc, char *argv[])
 {
     ml_bayes_param_t *param;
+    unsigned int *buf;
+    class_type ret;
 
-    param = load_bayes_param("sample.model");
+    param = load_bayes_param(argv[1]);
+    buf = read_test_data(argv[2]);
 
-    print_bayes_param(param);
+    ret = bayes_predict(buf, 64, param);
+    printf("ret: %d\n", ret);
+    //print_bayes_param(param);
 
     return 0;
 }
