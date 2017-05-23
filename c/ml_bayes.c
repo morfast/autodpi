@@ -110,6 +110,7 @@ class_type bayes_predict(unsigned int *buf, int n, ml_bayes_param_t *param)
     return maxi;
 }
 
+
 unsigned int* read_test_data(const char *filename)
 {
     FILE *fp;
@@ -134,12 +135,15 @@ int main(int argc, char *argv[])
     ml_bayes_param_t *param;
     unsigned int *buf;
     class_type ret;
+    int i;
 
     param = load_bayes_param(argv[1]);
-    buf = read_test_data(argv[2]);
 
-    ret = bayes_predict(buf, 64, param);
-    printf("ret: %d\n", ret);
+    for (i = 2; i < argc; i++) {
+        buf = read_test_data(argv[i]);
+        ret = bayes_predict(buf, 64, param);
+        printf("%s: %d\n", argv[i], ret);
+    }
     //print_bayes_param(param);
 
     return 0;
