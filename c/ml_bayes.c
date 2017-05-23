@@ -1,6 +1,10 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<assert.h>
+#include<string.h>
+
+#define BYTE_ENCODE_SIZE 257
+#define NULL_ENCODE_VALUE 256
 
 typedef enum {
     NEG, 
@@ -77,10 +81,14 @@ ml_bayes_param_t* load_bayes_param(const char *filename)
 /* flow type prediction with naive bayes method
  * buf: original bytes in the flow
  * n: then length of buf */
-class_type bayes_predict(unsigned int *buf, int n, ml_bayes_param_t *param)
+class_type bayes_predict(unsigned char *buf_inbound, int n_inbound, 
+                         unsigned char *buf_outbound, int n_outbound,
+                         ml_bayes_param_t *param)
 {
     int i;
     double **P_F_C, *P_C;
+    int feature_size = param->feature_size;
+    int n_max = feature_size / BYTE_ENCODE_SIZE / 2;
 
     P_C = param->P_C;
     P_F_C = param->P_F_C;
@@ -91,10 +99,28 @@ class_type bayes_predict(unsigned int *buf, int n, ml_bayes_param_t *param)
     for (c = 0; c < N_CLASS; c++) {
         double *pfc = P_F_C[c];
         result_P[c] = P_C[c];
-        for (i = 0; i < n; i++) {
-            //printf("%d %d %lf\n", buf[i], buf[i] + (257 * i), pfc[buf[i] + (257 * i)]);
-            result_P[c] *= (pfc[buf[i] + (257 * i)]);
+        /* inbound */
+        for (i = 0; i < n_inbound && i < n_max; i++) {
+            result_P[c] *= (pfc[buf_inbound[i] + (BYTE_ENCODE_SIZE * i)]);
+            //printf("%d ", buf_inbound[i]);
         }
+        while (i < n_max) {
+            result_P[c] *= (pfc[NULL_ENCODE_VALUE + (BYTE_ENCODE_SIZE * i)]);
+            //printf("%d ", NULL_ENCODE_VALUE);
+            i += 1;
+        }
+        /* outbound */
+        for (i = 0; i < n_outbound && i < n_max; i++) {
+            result_P[c] *= (pfc[buf_outbound[i] + (BYTE_ENCODE_SIZE * (i + n_max))]);
+            //printf("%d ", buf_outbound[i]);
+        }
+        while (i < n_max) {
+            result_P[c] *= (pfc[NULL_ENCODE_VALUE + (BYTE_ENCODE_SIZE * (i + n_max))]);
+            //printf("%d ", NULL_ENCODE_VALUE);
+            i += 1;
+        }
+        printf("%e\n", result_P[c]);
+
     }
 
     double maxp = 0.0;
@@ -111,24 +137,75 @@ class_type bayes_predict(unsigned int *buf, int n, ml_bayes_param_t *param)
 }
 
 
-unsigned int* read_test_data(const char *filename)
+#define BUF_SIZE 10000
+typedef struct flow_data {
+    unsigned char buf_inbound[BUF_SIZE];
+    int n_inbound;
+    unsigned char buf_outbound[BUF_SIZE];
+    int n_outbound;
+} flow_data_t;
+    
+flow_data_t* read_test_data(const char *filename)
 {
     FILE *fp;
+    flow_data_t *data;
+    unsigned char line[BUF_SIZE];
+    unsigned int buf[BUF_SIZE];
+    int i, j;
+    int line_length;
+    int n_scan;
+    int ret;
 
     fp = fopen(filename, "r");
-    int length = 32 * 2;
-    int i;
-    unsigned int *buf;
 
-    buf = (unsigned int *)malloc(sizeof(int) * length);
+    data = (flow_data_t*)malloc(sizeof(struct flow_data));
 
-    for (i = 0; i < length; i++) {
-        fscanf(fp, "%d", buf + i);
+    int n = 0;
+    while(1) {
+        ret = fscanf(fp, "%d", buf + n);
+        if (ret == EOF) break;
+        n += 1;
     }
-
-    return buf;
-}
     
+    j = 0;
+    for (i = 0; i < n/2; i++) {
+        if (buf[i] < NULL_ENCODE_VALUE) {
+            data->buf_inbound[j++] = (unsigned char)buf[i];
+        } else {
+            break;
+        }
+    }
+    data->n_inbound = i;
+
+    j = 0;
+    for(i = n/2; i < n; i++) {
+        if (buf[i] < NULL_ENCODE_VALUE) {
+            data->buf_outbound[j++] = (unsigned char)buf[i];
+        } else {
+            break;
+        }
+    }
+    data->n_outbound = i - n/2;
+
+    return data;
+}
+
+int main2(int argc, char *argv[])
+{
+    flow_data_t *data;
+    data = read_test_data(argv[1]);
+
+    int i;
+    printf("%d\n", data->n_inbound);
+    for (i = 0; i < data->n_inbound; i++)
+        printf("%d ", data->buf_inbound[i]);
+
+    printf("\n%d\n", data->n_outbound);
+    for (i = 0; i < data->n_outbound; i++)
+        printf("%d ", data->buf_outbound[i]);
+    printf("\n\n", data->n_outbound);
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -136,12 +213,20 @@ int main(int argc, char *argv[])
     unsigned int *buf;
     class_type ret;
     int i;
+    flow_data_t *data;
+    char *buf_inbound;
+    int n_inbound; 
+    unsigned char *buf_outbound;
+    int n_outbound;
 
     param = load_bayes_param(argv[1]);
 
     for (i = 2; i < argc; i++) {
-        buf = read_test_data(argv[i]);
-        ret = bayes_predict(buf, 64, param);
+        data = read_test_data(argv[i]);
+        //ret = bayes_predict(buf, 64, param);
+        ret = bayes_predict(data->buf_inbound, data->n_inbound, 
+                         data->buf_outbound, data->n_outbound,
+                         param);
         printf("%s: %d\n", argv[i], ret);
     }
     //print_bayes_param(param);
