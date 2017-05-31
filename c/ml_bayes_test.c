@@ -87,10 +87,10 @@ int main(int argc, char *argv[])
     int n_outbound;
 
     param = load_bayes_param(argv[1]);
+    //print_bayes_param(param);
 
     for (i = 2; i < argc; i++) {
         data = read_test_data(argv[i]);
-        //ret = bayes_predict(buf, 64, param);
         ret = bayes_predict(data->buf_inbound, data->n_inbound, 
                          data->buf_outbound, data->n_outbound,
                          param);
@@ -100,7 +100,6 @@ int main(int argc, char *argv[])
             printf("%s: positive\n", argv[i]) ;
         }
     }
-    //print_bayes_param(param);
 
     return 0;
 }

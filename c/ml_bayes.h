@@ -17,15 +17,15 @@ typedef struct ml_param {
 typedef struct ml_bayes_param {
     ml_param_t common_param;
 
-    /* P(Fn | C)
-     * possibility of feature Fn in class C
-     */ 
     int feature_size;
     double P_C[N_CLASS];
     double *P_F_C[N_CLASS];
 } ml_bayes_param_t;
 
+/* load parameters of the model */
 ml_bayes_param_t* load_bayes_param(const char *filename);
+
+/* predict according to inbound and the corresponding oubound flows */
 class_type bayes_predict(unsigned char *buf_inbound, int n_inbound, 
                          unsigned char *buf_outbound, int n_outbound,
                          ml_bayes_param_t *param);

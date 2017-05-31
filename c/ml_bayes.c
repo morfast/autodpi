@@ -90,7 +90,7 @@ class_type bayes_predict(unsigned char *buf_inbound, int n_inbound,
                             (BYTE_ENCODE_SIZE * (i + n_max))]);
             i += 1;
         }
-        printf("%e\n", result_P[c]);
+        //printf("%e\n", result_P[c]);
 
     }
 
