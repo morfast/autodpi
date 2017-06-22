@@ -55,7 +55,7 @@ class MyBayesClassifier():
                 ps.append(p_cf)
                 cs.append(c)
 
-            print "ps: ", ps
+            #print "ps: ", ps
             res.append(max(zip(ps, cs), key=lambda x: x[0])[1])
             #print "data:", data, "ps:", ps, "cs", cs
 

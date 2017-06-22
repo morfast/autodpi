@@ -81,6 +81,30 @@ def expand_to_bit_data(data):
     return res
 
 def read_data_from_tshark_file(filename):
+    lines = open(filename).readlines()
+    up_data = []
+    down_data = []
+    for line in lines[6:-1]:
+        if line[0] != "\t" and up_data == []:
+            d = [int(i, 16) for i in re.findall('..', line)]
+            up_data += d[:Truncate_size] + [256] * (Truncate_size - len(d[:Truncate_size]))
+        elif line[0] == "\t" and down_data == []:
+            d = [int(i, 16) for i in re.findall('..', line[1:])]
+            down_data += d[:Truncate_size] + [256] * (Truncate_size - len(d[:Truncate_size]))
+
+        if up_data and down_data:
+            break
+    try:
+        assert(len(up_data) == Truncate_size or len(up_data) == 0)
+        assert(len(down_data) == Truncate_size or len(down_data) == 0)
+    except:
+        print up_data
+        print down_data
+        sys.exit(1)
+    return expand_to_bit_data(up_data), expand_to_bit_data(down_data)
+
+
+def read_data_from_tshark_file2(filename):
     global Max_Round_count
     global Truncate_size
 
@@ -121,9 +145,13 @@ def read_data_tshark(dirnames):
         filelist = glob.glob(dirname + "/flow*")
         ndata = 0
         for filename in filelist:
-            a = read_data_from_tshark_file(filename)
+            a,b = read_data_from_tshark_file(filename)
             if a:
                 data.append(a)
+                label.append(dirname)
+                ndata += 1
+            if b:
+                data.append(b)
                 label.append(dirname)
                 ndata += 1
         print dirname, len(filelist), ndata
@@ -245,9 +273,10 @@ def multiple_classifier_test():
         clf = MyBayesClassifier()
         #scores = my_cross_val_score(clf, xx, yy, cv=4)
         #print c, scores, mean(scores)
+
         clf.fit(xx, yy)
         clf.store_model(c)
-        clf.predict([read_data_from_tshark_file("ctest")])
+        #clf.predict([read_data_from_tshark_file("ctest")])
 
 
 def my_cross_val_score(clf, x, y, cv):
