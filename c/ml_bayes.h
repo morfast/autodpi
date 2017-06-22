@@ -26,8 +26,9 @@ typedef struct ml_bayes_param {
 ml_bayes_param_t* load_bayes_param(const char *filename);
 
 /* predict according to inbound and the corresponding oubound flows */
-class_type bayes_predict(unsigned char *buf_inbound, int n_inbound, 
+class_type bayes_predict2(unsigned char *buf_inbound, int n_inbound, 
                          unsigned char *buf_outbound, int n_outbound,
                          ml_bayes_param_t *param);
+class_type bayes_predict(unsigned char *buf, int len, ml_bayes_param_t *param);
 
 #endif	/* ml_bayes.h */

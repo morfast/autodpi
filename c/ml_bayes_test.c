@@ -12,7 +12,7 @@ typedef struct flow_data {
     int n_outbound;
 } flow_data_t;
     
-flow_data_t* read_test_data(const char *filename)
+flow_data_t* read_test_data2(const char *filename)
 {
     FILE *fp;
     flow_data_t *data;
@@ -57,43 +57,61 @@ flow_data_t* read_test_data(const char *filename)
     return data;
 }
 
-int test_read_test_data(char *filename)
+int read_test_data(const char *filename, unsigned char *buf)
 {
+    FILE *fp;
     flow_data_t *data;
-    data = read_test_data(filename);
+    unsigned char line[BUF_SIZE];
+    int i, j;
+    int line_length;
+    int n_scan;
+    int ret;
 
-    int i;
-    printf("%d\n", data->n_inbound);
-    for (i = 0; i < data->n_inbound; i++)
-        printf("%d ", data->buf_inbound[i]);
+    fp = fopen(filename, "r");
 
-    printf("\n%d\n", data->n_outbound);
-    for (i = 0; i < data->n_outbound; i++)
-        printf("%d ", data->buf_outbound[i]);
-    printf("\n\n", data->n_outbound);
+    int n = 0;
+    while(1) {
+        ret = fscanf(fp, "%d", buf + n);
+        if (ret == EOF) break;
+        n += 1;
+    }
+
+    fclose(fp);
+    
+    return n;
 }
+
+//int test_read_test_data(char *filename)
+//{
+//    flow_data_t *data;
+//    data = read_test_data(filename);
+//
+//    int i;
+//    printf("%d\n", data->n_inbound);
+//    for (i = 0; i < data->n_inbound; i++)
+//        printf("%d ", data->buf_inbound[i]);
+//
+//    printf("\n%d\n", data->n_outbound);
+//    for (i = 0; i < data->n_outbound; i++)
+//        printf("%d ", data->buf_outbound[i]);
+//    printf("\n\n", data->n_outbound);
+//}
 
 
 int main(int argc, char *argv[])
 {
     ml_bayes_param_t *param;
-    unsigned int *buf;
+    unsigned char* buf[BUF_SIZE];
     class_type ret;
     int i;
-    flow_data_t *data;
-    char *buf_inbound;
-    int n_inbound; 
-    unsigned char *buf_outbound;
-    int n_outbound;
+    int len;
 
     param = load_bayes_param(argv[1]);
     //print_bayes_param(param);
 
     for (i = 2; i < argc; i++) {
-        data = read_test_data(argv[i]);
-        ret = bayes_predict(data->buf_inbound, data->n_inbound, 
-                         data->buf_outbound, data->n_outbound,
-                         param);
+        len = read_test_data(argv[i], buf);
+        ret = bayes_predict(buf, len, param);
         if (ret == NEG) {
             printf("%s: negetive\n", argv[i]);
         } else if (ret == POS) {
