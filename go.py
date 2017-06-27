@@ -103,6 +103,15 @@ def read_data_from_tshark_file(filename):
         sys.exit(1)
     return expand_to_bit_data(up_data), expand_to_bit_data(down_data)
 
+def read_udp_payload_data_from_tshark_file(filename):
+    lines = open(filename).readlines()
+    datas = []
+    for line in lines[:100]:
+        d = [int(i, 16) for i in re.findall('..', line)]
+        data = d[:Truncate_size] + [256] * (Truncate_size - len(d[:Truncate_size]))
+        datas.append(expand_to_bit_data(data))
+
+    return datas
 
 def read_data_from_tshark_file2(filename):
     global Max_Round_count
@@ -134,6 +143,16 @@ def read_data_from_tshark_file2(filename):
     assert(len(data) == 0 or len(data) == Truncate_size*2)
     return expand_to_bit_data(data)
 
+def is_udp_flowfile(filename):
+    fname = filename.split('/')[-1]
+    try:
+        if fname.split('_')[1] == "udp":
+            return True
+        else:
+            return False
+    except:
+        return False
+
 def read_data_tshark(dirnames):
     """ read data from tshark output files """
 
@@ -145,13 +164,15 @@ def read_data_tshark(dirnames):
         filelist = glob.glob(dirname + "/flow*")
         ndata = 0
         for filename in filelist:
-            a,b = read_data_from_tshark_file(filename)
-            if a:
+            #print filename
+            if is_udp_flowfile(filename):
+                datas = read_udp_payload_data_from_tshark_file(filename)
+                print "UDP:", len(datas)
+            else:
+                datas = read_data_from_tshark_file(filename)
+            for a in datas:
+                if not a: continue
                 data.append(a)
-                label.append(dirname)
-                ndata += 1
-            if b:
-                data.append(b)
                 label.append(dirname)
                 ndata += 1
         print dirname, len(filelist), ndata
