@@ -17,6 +17,9 @@ from sklearn.ensemble import IsolationForest, RandomForestClassifier
 # positvie and unlabelled classification
 from puLearning.puAdapter import PUAdapter
 
+# lightGBM
+import lightgbm as lgb
+
 class TrainingInfo(object):
     def __init__(self):
         pass
@@ -62,7 +65,11 @@ def onehot_encode(data, const_len=64):
 
     return res
 
-def prepare_samples(pos_samples, neg_samples, test_ratio = 0.2, test_positive_only=False):
+def padding(data, const_len = 64):
+    p = [-1] * (const_len - len(data))
+    return data + p
+
+def prepare_samples(pos_samples, neg_samples, test_ratio = 0.25, test_positive_only=False):
     """ get training set and testing set from the original sample data """
     pos_labels = [1] * len(pos_samples)
     neg_labels = [-1] * len(neg_samples)
@@ -70,7 +77,8 @@ def prepare_samples(pos_samples, neg_samples, test_ratio = 0.2, test_positive_on
     all_datas = pos_samples + neg_samples
     all_labels = pos_labels + neg_labels
 
-    all_datas = [onehot_encode(d) for d in all_datas]
+    #all_datas = [onehot_encode(d) for d in all_datas]
+    all_datas = [padding(d) for d in all_datas]
 
     train_data, test_data, train_label, test_label = \
         train_test_split(all_datas, all_labels, test_size = test_ratio)
@@ -79,13 +87,35 @@ def prepare_samples(pos_samples, neg_samples, test_ratio = 0.2, test_positive_on
             np.array(train_label), np.array(test_label)
 
 def evaluate_model(y_test, y_pred):
-    precision, recall, f1_score, _ = precision_recall_fscore_support(y_test, y_pred)
-    print "precision/recall/F1: %4.3f %4.3f %4.3f" % (precision[1], recall[1], f1_score[1])
+    #precision, recall, f1_score, _ = precision_recall_fscore_support(y_test, y_pred)
+    #print "precision/recall/F1: %4.3f %4.3f %4.3f" % (precision[1], recall[1], f1_score[1])
+    #print "precision/recall/F1: %4.3f %4.3f %4.3f" % (precision[0], recall[0], f1_score[0])
+
+    ok = 0
+    pos = 0
+    ok_pos = 0
+    neg = 0
+    ok_neg = 0
+
+    for a,b in zip(y_test, y_pred):
+
+        if a == 1:
+            pos += 1
+        else:
+            neg += 1
+
+        if a == b:
+            if a == 1:
+                ok_pos += 1
+            else:
+                ok_neg += 1
+
+    print "score: %d/%d = %4.3f %d/%d = %4.3f" % (ok_pos, pos, float(ok_pos)/pos, ok_neg, neg, float(ok_neg)/neg)
 
 def pu_test(base_model, x_train, y_train, x_test, y_test):
 
     npos = len(np.where(y_train == 1)[0]) # index of positive samples
-    n_sacrifice_iter = range(0, npos/5, npos/15)
+    n_sacrifice_iter = range(0, npos/4, npos/20)
     print n_sacrifice_iter
     for n_sacrifice in n_sacrifice_iter:
 
@@ -138,8 +168,8 @@ def main():
 
     # read sample from file
     pos_filename, neg_filename = parse_argument()
-    pos_samples = read_sample_from_file(open(pos_filename), 100)
-    neg_samples = read_sample_from_file(open(neg_filename), 1000)
+    pos_samples = read_sample_from_file(open(pos_filename), 80000)
+    neg_samples = read_sample_from_file(open(neg_filename), 200000)
     print "%d positive samples read from %s" % (len(pos_samples), pos_filename)
     print "%d negetive samples read from %s" % (len(neg_samples), neg_filename)
 
@@ -149,9 +179,20 @@ def main():
          prepare_samples(pos_samples, neg_samples)
 
     # train model
-    base_model = GradientBoostingClassifier()
+    #base_model = RandomForestClassifier()
+    #base_model = GradientBoostingClassifier()
+    base_model = lgb.LGBMClassifier(objective='binary',
+                             boosting_type='gbdt',
+                             num_leaves=25,
+                             learning_rate=0.05,
+                             bagging_fraction=0.8,
+                             bagging_freq=5,
+                             n_estimators=20,
+                             nthread=5)
+    #base_model = GaussianNB()
     print "begin test"
     pu_test(base_model, train_data, train_label, test_data, test_label)
 
 
 main()
+
