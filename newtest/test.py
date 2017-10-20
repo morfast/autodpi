@@ -69,7 +69,7 @@ def padding(data, const_len = 64):
     p = [-1] * (const_len - len(data))
     return data + p
 
-def prepare_samples(pos_samples, neg_samples, test_ratio = 0.25, test_positive_only=False):
+def prepare_samples(pos_samples, neg_samples, test_ratio = 0.25, encoding='padding'):
     """ get training set and testing set from the original sample data """
     pos_labels = [1] * len(pos_samples)
     neg_labels = [-1] * len(neg_samples)
@@ -77,8 +77,12 @@ def prepare_samples(pos_samples, neg_samples, test_ratio = 0.25, test_positive_o
     all_datas = pos_samples + neg_samples
     all_labels = pos_labels + neg_labels
 
-    #all_datas = [onehot_encode(d) for d in all_datas]
-    all_datas = [padding(d) for d in all_datas]
+    if encoding == 'padding':
+        print "padding encoding applied"
+        all_datas = [padding(d) for d in all_datas]
+    elif encoding == 'onehot':
+        print "onehot encoding applied"
+        all_datas = [onehot_encode(d) for d in all_datas]
 
     train_data, test_data, train_label, test_label = \
         train_test_split(all_datas, all_labels, test_size = test_ratio)
@@ -86,7 +90,7 @@ def prepare_samples(pos_samples, neg_samples, test_ratio = 0.25, test_positive_o
     return np.array(train_data), np.array(test_data), \
             np.array(train_label), np.array(test_label)
 
-def evaluate_model(y_test, y_pred):
+def evaluate_model(y_test, y_pred, info_str = ""):
     #precision, recall, f1_score, _ = precision_recall_fscore_support(y_test, y_pred)
     #print "precision/recall/F1: %4.3f %4.3f %4.3f" % (precision[1], recall[1], f1_score[1])
     #print "precision/recall/F1: %4.3f %4.3f %4.3f" % (precision[0], recall[0], f1_score[0])
@@ -98,24 +102,23 @@ def evaluate_model(y_test, y_pred):
     ok_neg = 0
 
     for a,b in zip(y_test, y_pred):
-
         if a == 1:
             pos += 1
         else:
             neg += 1
-
         if a == b:
             if a == 1:
                 ok_pos += 1
             else:
                 ok_neg += 1
 
-    print "score: %d/%d = %4.3f %d/%d = %4.3f" % (ok_pos, pos, float(ok_pos)/pos, ok_neg, neg, float(ok_neg)/neg)
+    print "%s score: %d/%d = %4.3f %d/%d = %4.3f %d/%d = %5.4f" % (info_str, ok_pos, pos, float(ok_pos)/pos, ok_neg, neg, float(ok_neg)/neg, \
+                                                                ok_pos+ok_neg, pos+neg, float(ok_pos+ok_neg)/float(pos+neg))
 
 def pu_test(base_model, x_train, y_train, x_test, y_test):
 
     npos = len(np.where(y_train == 1)[0]) # index of positive samples
-    n_sacrifice_iter = range(0, npos/4, npos/20)
+    n_sacrifice_iter = range(0, npos/4, npos/10)
     print n_sacrifice_iter
     for n_sacrifice in n_sacrifice_iter:
 
@@ -127,26 +130,30 @@ def pu_test(base_model, x_train, y_train, x_test, y_test):
         sacrifice_idx = np.random.choice(pos_idx, n_sacrifice)
         y_train_sac[sacrifice_idx] = -1
 
-        print "In test set: positive/negative: %d %d" % \
+        print "In training set: positive/negative: %d %d" % \
             (len(np.where(y_train_sac == 1)[0]), len(np.where(y_train_sac == -1)[0]))
         
         # fit with base model
         estimator = deepcopy(base_model)
         print "fitting base model ..."
         estimator.fit(x_train, y_train_sac)
-        # predict with PU model
+        # predict with base model
         y_pred = estimator.predict(x_test)
-        evaluate_model(y_test, y_pred)
+        evaluate_model(y_test, y_pred, "base model, test set")
+        if n_sacrifice == 0:
+            y_train_pred = estimator.predict(x_train)
+            evaluate_model(y_train_sac, y_train_pred, "base model, traning set")
+            print "score on the training set: %f" % estimator.score(x_train, y_train_sac)
         print
 
         # fit with PU model
         estimator = deepcopy(base_model)
-        pu_estimator = PUAdapter(estimator,hold_out_ratio=0.2)
+        pu_estimator = PUAdapter(estimator,hold_out_ratio=0.1)
         print "fitting PU model ..."
         pu_estimator.fit(x_train, y_train_sac)
         # predict with PU model
         y_pred = pu_estimator.predict(x_test)
-        evaluate_model(y_test, y_pred)
+        evaluate_model(y_test, y_pred, "PU model, test set")
         if n_sacrifice > 0:
             sac_test = x_train[sacrifice_idx] 
             sar_pred = pu_estimator.predict(sac_test)
@@ -168,8 +175,9 @@ def main():
 
     # read sample from file
     pos_filename, neg_filename = parse_argument()
-    pos_samples = read_sample_from_file(open(pos_filename), 80000)
-    neg_samples = read_sample_from_file(open(neg_filename), 200000)
+    pos_samples = read_sample_from_file(open(pos_filename), -1)
+    pos_samples = pos_samples * 10
+    neg_samples = read_sample_from_file(open(neg_filename), 300000)
     print "%d positive samples read from %s" % (len(pos_samples), pos_filename)
     print "%d negetive samples read from %s" % (len(neg_samples), neg_filename)
 
@@ -183,11 +191,11 @@ def main():
     #base_model = GradientBoostingClassifier()
     base_model = lgb.LGBMClassifier(objective='binary',
                              boosting_type='gbdt',
-                             num_leaves=25,
+                             num_leaves=28,
                              learning_rate=0.05,
                              bagging_fraction=0.8,
                              bagging_freq=5,
-                             n_estimators=20,
+                             n_estimators=30,
                              nthread=5)
     #base_model = GaussianNB()
     print "begin test"
